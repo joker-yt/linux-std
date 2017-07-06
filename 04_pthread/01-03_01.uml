@@ -1,0 +1,30 @@
+@startuml 01-03_01.png
+
+Create mutex
+main -> mutex: create
+
+Create thread
+main -> thread: create
+
+thread -> mutex: lock
+mutex --> thread: locked
+thread -> thread: do something
+thread -> thread: wait signal!
+thread -> mutex: unlock temporarily
+
+
+main -> mutex: lock
+mutex --> main: locked
+note left : got locked!
+
+
+main -> thread: signal
+main -> mutex: unlock
+note left: thread can't get lock until mutex has unlocked!
+
+mutex --> thread: pass lock again
+thread -> thread: do something
+
+thread -> main: joined
+
+@enduml
