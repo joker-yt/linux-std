@@ -11,10 +11,26 @@ int main(int argc, char *argv[]) {
   cout << "Com1 start" << endl;
 
   // if specify O_EXCL, return error in case of already existed.
-  sem_t *sp = sem_open("/sem_test", O_CREAT, O_RDWR, 0);
-  if (SEM_FAILED == sp) {
-    cerr << "Com1 open error :" << strerror(errno) << endl;
+  struct stat st;
+  sem_t *sp;
+  if (stat("/dev/shm/sem_test", &st)) {
+
+    sem_unlink("sem_test");
+    sp = sem_open("/sem_test", O_CREAT, 0666, 0);
+    if (SEM_FAILED == sp) {
+      cerr << "Com1 open error2 :" << strerror(errno) << endl;
+      return -1;
+    }
+
+  } else {
+    sp = sem_open("/sem_test", 0, 0777, 0);
+    if (SEM_FAILED == sp) {
+      cerr << "Com1 open error :" << strerror(errno) << endl;
+      return -1;
+    }
   }
+
+  cout << "Com1 open successfully" << endl;
 
   // sem_trywait, sem_timedwait
   int ret = sem_wait(sp);
