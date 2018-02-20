@@ -11,7 +11,7 @@
 
 using namespace std;
 
-// #define DEBUG_RESTART
+#define DEBUG_RESTART
 const int rd_siz = 100000;
 bool flg = false;
 
@@ -42,17 +42,18 @@ void child(pid_t pid) { /* code */
 
   while (1) {
     cout << __FUNCTION__ << ": start reading! " << strtime() << endl;
-    siz = read(fd, buf, rd_siz);
+    siz = read(1, buf, rd_siz);
+    // siz = read(fd, buf, rd_siz);
     cout << __FUNCTION__ << ": "
          << "[" << siz << "]" << strerror(errno) << " : " << endl;
 
     if (siz != rd_siz) {
       cout << __FUNCTION__ << ": siz -> " << siz << endl;
       if (errno == EINTR) {
-        cout << __FUNCTION__ << ": " << strerror(errno) << endl;
+        cout << __FUNCTION__ << "[1]: " << strerror(errno) << endl;
         break;
       } else {
-        cout << __FUNCTION__ << ": " << strerror(errno) << endl;
+        cout << __FUNCTION__ << "[2]: " << strerror(errno) << endl;
         break;
       }
     }
@@ -82,7 +83,7 @@ int main(int argc, char *argv[]) {
   if (pid == 0) {
     child(pid);
   } else {
-    sleep(3);
+    sleep(8);
     parent(pid);
   }
 
