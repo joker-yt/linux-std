@@ -50,5 +50,7 @@ int main(int argc, char const *argv[])
 
     PLOGI << "CLI:RCV " << buf;
 
+    close(fd);
+
     return 0;
 }
