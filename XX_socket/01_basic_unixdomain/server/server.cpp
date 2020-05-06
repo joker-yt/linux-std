@@ -66,5 +66,7 @@ int main(int argc, char const *argv[])
         send(target_fd, res_msg, strlen(res_msg), 0);
     }
 
+    close(fd);
+
     return 0;
 }
