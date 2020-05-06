@@ -17,6 +17,7 @@
 - [openssl s_client コマンドでウェブサーバーの SSL/TLS 対応状況を診断する](https://laboradian.com/try-openssl-s_client-command/)
 - [理解してるつもりの SSL/TLS でも、もっと理解したら面白かった話](https://tkengo.github.io/blog/2015/12/01/https-details/)
 - [Cipher Suite Definitions(in RFC)](https://tools.ietf.org/html/rfc5246#appendix-C)
+- [細かすぎて伝わらないSSL/TLS](https://techblog.yahoo.co.jp/infrastructure/ssl-session-resumption/)
 ## sample
 \>openssl s_client -connect www.example.com:443  
 

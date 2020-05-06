@@ -15,6 +15,12 @@ static plog::ConsoleAppender<plog::TxtFormatter> consoleAppender;
 int main(int argc, char const *argv[])
 {
     plog::init(plog::verbose, &consoleAppender);
+    ///////////////////////////////////////////////
+    PLOGI << "intialization for SSL (things to do once in sequence)";
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    ERR_load_crypto_strings();
+    SSL_load_error_strings();
 
     ///////////////////////////////////////////////
     PLOGI << "normal socket intialization";
@@ -30,33 +36,11 @@ int main(int argc, char const *argv[])
     sock_ad.sin_addr.s_addr = inet_addr("127.0.0.1");
     sock_ad.sin_port = htons(11111);
 
-    ///////////////////////////////////////////////
-    PLOGI << "SSL sequence";
-    int err;
-    SSL *ssl;
-    SSL_CTX *ctx;
-    SSL_load_error_strings();
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
-
-    int ret;
-
-    char crt_file[] = "server.crt";
-    char key_file[] = "server.key";
-    if ((ctx = SSL_CTX_new(SSLv23_server_method())) == nullptr)
-    {
-        PLOGE << "SSL_CTX_new";
-    }
-
-    ret = SSL_CTX_use_certificate_file(ctx, crt_file, SSL_FILETYPE_PEM);
-    ret = SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM);
-
     if (bind(fd, (const struct sockaddr *)&sock_ad, sizeof(sock_ad)) < 0)
     {
         PLOGE << "Error: bind";
     }
 
-    ///////////////////////////////////////////////
     PLOGI << "listen <- preparing to accept connecting request.";
     //---------------------------------------------
     if (listen(fd, 5) < 0)
@@ -70,14 +54,12 @@ int main(int argc, char const *argv[])
     int target_fd;
     struct sockaddr sock_ad_accepted;
     socklen_t sockaddr_len = sizeof(sock_ad_accepted);
-    ssize_t sz;
-    char buf[512];
-    int ssl_eno;
 
+    SSL *ssl;
+    SSL_CTX *ctx;
     while (1)
     {
         memset(&sock_ad_accepted, 0, sockaddr_len);
-        memset(buf, 0, sizeof(buf));
         if ((target_fd = accept(fd, &sock_ad_accepted, &sockaddr_len)) < 0)
         {
             PLOGE << "Error: accept";
@@ -86,23 +68,46 @@ int main(int argc, char const *argv[])
 
         while (1)
         {
+            PLOGI << "SSL sequence";
+            int ssl_eno;
+            int ret;
+
+            char crt_file[] = "server.crt";
+            char key_file[] = "server.key";
+            if ((ctx = SSL_CTX_new(SSLv23_server_method())) == nullptr)
+            {
+                PLOGE << "SSL_CTX_new";
+                break;
+            }
+
+            if ((ret = SSL_CTX_use_certificate_file(ctx, crt_file, SSL_FILETYPE_PEM)) != 1)
+            {
+                PLOGE << "SSL_CTX_use_certificate_file";
+                break;
+            }
+
+            if ((ret = SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM)) != 1)
+            {
+                PLOGE << "SSL_CTX_use_PrivateKey_file";
+                break;
+            }
+
             if ((ssl = SSL_new(ctx)) == nullptr)
             {
                 PLOGE << "SSL_new";
+                break;
             }
 
-            if ((err = SSL_set_fd(ssl, target_fd)) == 0)
+            if ((ret = SSL_set_fd(ssl, target_fd)) == 0)
             {
                 PLOGE << "SSL_set_fd";
+                break;
             }
 
             if ((ret = SSL_accept(ssl)) < 0)
             {
-                PLOGE << "Error: SSL_accept ";
                 ssl_eno = SSL_get_error(ssl, ret);
-                ERR_load_crypto_strings();
-                SSL_load_error_strings(); // just once
-                char msg[1024];
+                char msg[256] = {0};
                 ERR_error_string_n(ERR_get_error(), msg, sizeof(msg));
                 PLOGE << "Error: SSL_accept " << msg;
             }
@@ -113,7 +118,12 @@ int main(int argc, char const *argv[])
 
             sleep(1);
         }
-        // sz = SSL_read(ssl, buf, sizeof(buf));
+
+        ///////////////////////////////////////////////
+        PLOGI << "receive msg";
+        ssize_t sz;
+        char buf[256] = {0};
+        sz = SSL_read(ssl, buf, sizeof(buf));
         PLOGI << "SRV:RCV " << buf;
         const char *res_msg = u8"ack from SRV";
         SSL_write(ssl, res_msg, strlen(res_msg));
@@ -125,9 +135,6 @@ int main(int argc, char const *argv[])
     SSL_shutdown(ssl);
     SSL_free(ssl);
     SSL_CTX_free(ctx);
-
-    fd = SSL_get_fd(ssl);
-    SSL_free(ssl);
 
     close(fd);
 
