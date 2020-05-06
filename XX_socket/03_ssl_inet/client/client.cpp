@@ -14,6 +14,12 @@ static plog::ConsoleAppender<plog::TxtFormatter> consoleAppender;
 int main(int argc, char const *argv[])
 {
     plog::init(plog::verbose, &consoleAppender);
+    ///////////////////////////////////////////////
+    PLOGI << "intialization for SSL (things to do once in sequence)";
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    ERR_load_crypto_strings();
+    SSL_load_error_strings();
 
     ///////////////////////////////////////////////
     PLOGI << "normal socket intialization";
@@ -49,17 +55,16 @@ int main(int argc, char const *argv[])
     int err;
     SSL *ssl;
     SSL_CTX *ctx;
-    SSL_load_error_strings();
-    SSL_library_init();
 
     ctx = SSL_CTX_new(SSLv23_client_method());
     SSL_CTX_set_cipher_list(ctx, "AES256+GCM+SHA384");
     int ret;
 
     char crt_file[] = "server.crt";
-    char key_file[] = "server.key";
-
-    ret = SSL_CTX_use_certificate_file(ctx, crt_file, SSL_FILETYPE_PEM);
+    if ((ret = SSL_CTX_use_certificate_file(ctx, crt_file, SSL_FILETYPE_PEM)) != 1)
+    {
+        PLOGE << "Error: SSL_CTX_use_certificate_file";
+    }
 
     ssl = SSL_new(ctx);
     if (!(err = SSL_set_fd(ssl, fd)))
@@ -72,44 +77,35 @@ int main(int argc, char const *argv[])
     {
         if ((err = SSL_connect(ssl)) < 0)
         {
-            PLOGE << "Error: SSL_connect";
             ssl_eno = SSL_get_error(ssl, err);
-            ERR_load_crypto_strings();
-            SSL_load_error_strings(); // just once
-            char msg[1024];
+            char msg[256] = {0};
             ERR_error_string_n(ERR_get_error(), msg, sizeof(msg));
             PLOGE << "Error: SSL_connect " << msg;
-            sleep(1);
-            continue;
         }
         else if (!err)
         {
-            PLOGE << "Error: SSL_connect(0)";
             ssl_eno = SSL_get_error(ssl, err);
-            ERR_load_crypto_strings();
-            SSL_load_error_strings(); // just once
-            char msg[1024];
+            char msg[256] = {0};
             ERR_error_string_n(ERR_get_error(), msg, sizeof(msg));
             PLOGE << "Error: SSL_connect(0) " << msg;
-            sleep(1);
-            continue;
         }
         else
         {
             break;
         }
+        sleep(1);
     }
 
     ///////////////////////////////////////////////
     PLOGI << "send msg";
-    // //---------------------------------------------
-    // const char *msg = "This is test msg";
-    // if (SSL_write(ssl, msg, strlen(msg)) < 0)
-    // {
-    //     PLOGE << "Error: send";
-    // }
+    //---------------------------------------------
+    const char *msg = "This is test msg";
+    if (SSL_write(ssl, msg, strlen(msg)) < 0)
+    {
+        PLOGE << "Error: send";
+    }
 
-    char buf[512] = {0};
+    char buf[256] = {0};
     if (SSL_read(ssl, buf, sizeof(buf)) < 0)
     {
         PLOGE << "Error: recv";
@@ -123,8 +119,7 @@ int main(int argc, char const *argv[])
     SSL_free(ssl);
     SSL_CTX_free(ctx);
 
-    fd = SSL_get_fd(ssl);
-    SSL_free(ssl);
+    sleep(1);
     close(fd);
 
     return 0;
